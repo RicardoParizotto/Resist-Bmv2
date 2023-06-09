@@ -78,8 +78,8 @@ class coordinator:
             #TODO: add to a map per nodes
             #for messages from every node
             for msg in self.inputPerNode[node]:
-                #if the ID is not know by the replatInput data structure
-                if msg['pid'] not in self.replayInput:
+                #if the ID is not know by the replayInput data structure
+                if msg['pid'] not in self.replayInput.keys():
                     self.replayInput[msg['pid']] = []
                 #if the specific LVT is not in the set of messages that pid has to replay, include this message and its round number to the set
                 if msg['lvt'] not in self.replayInput[msg['pid']]:

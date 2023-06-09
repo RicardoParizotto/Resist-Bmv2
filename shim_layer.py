@@ -36,7 +36,8 @@ coordinatorAdress = "10.0.3.3"
 
 
 class shim_layer:
-    def __init__(self):
+    def __init__(self, pid):
+         self.pid = pid
          self.input_log = []
          self.output_log = []
          self.clock = 0
@@ -73,44 +74,25 @@ class shim_layer:
 
     def handle_pkt(self, pkt):
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REPLAY_DATA:
+            print("packet replay")
             print(eval(pkt[Raw].load))
-
         #data being request by the cooordinator?
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REQUEST_DATA:
             pkt =  Ether(src=get_if_hwaddr(self.iface_replica), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
-            pkt = pkt / ResistProtocol(flag=REPORT_DATA, pid=1) / IP(dst=coordinatorAdress)
+            pkt = pkt / ResistProtocol(flag=REPORT_DATA, pid = self.pid) / IP(dst=coordinatorAdress)
             #send packet to the coordinator
             pkt = pkt / Raw(load=str(self.input_log))
             sendp(pkt, iface=self.iface_replica, verbose=False)
         elif ResistProtocol in pkt:
             print("got a packet")
             self.input_log.append({"lvt":pkt[ResistProtocol].value, "round": pkt[ResistProtocol].round, "pid": pkt[ResistProtocol].pid})
-        print(self.input_log)
+            print(self.input_log)
 
-    def send(self, addr, iface, input):
-        self.output_log.append({"lvt":self.clock_tick, "data": input})
+    def send(self, addr, input):
+        self.output_log.append({"lvt":self.clock_tick(), "data": input})
 
         print("sending on interface %s to %s" % (self.iface, str(addr)))
         pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
-        pkt = pkt / ResistProtocol(flag=PKT_FROM_SHIM_LAYER, pid=1) / IP(dst=addr) / TCP(dport=1234, sport=random.randint(49152,65535)) / input
-        pkt.show2()
+        pkt = pkt / ResistProtocol(flag=PKT_FROM_SHIM_LAYER, pid = self.pid, value=self.clock) / IP(dst=addr) / TCP(dport=1234, sport=random.randint(49152,65535)) / input
+        #pkt.show2()
         sendp(pkt, iface=self.iface, verbose=False)
-
-def main():
-
-    if len(sys.argv)<3:
-        print('pass 2 arguments: <destination> "<message>"')
-        exit(1)
-
-    addr = socket.gethostbyname(sys.argv[1])
-
-
-    shim = shim_layer();
-    iface = shim.get_if()
-    shim.send(addr, iface, input=sys.argv[2])
-
-
-
-
-if __name__ == '__main__':
-    main()
