@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+import random
+import socket
+import sys
+import threading
+import os
+
+from scapy.all import (
+    FieldLenField,
+    FieldListField,
+    IntField,
+    IPOption,
+    ShortField,
+    get_if_list,
+    sniff
+)
+
+from scapy.all import IP, TCP, Ether, get_if_hwaddr, get_if_list, sendp
+
+from resist_header import *
+
+PKT_FROM_SHIM_LAYER = 0
+PKT_FROM_MASTER_TO_REPLICA =  1
+PKT_PING = 2
+PKT_PONG = 3
+REQUEST_DATA = 4
+REPORT_DATA = 5
+
+#define PKT_FROM_SHIM_LAYER 0
+#define PKT_FROM_MASTER_TO_REPLICA 1
+#define PKT_PING 2
+#define PKT_PONG 3
+
+coordinatorAdress = "10.0.3.3"
+
+
+class shim_layer:
+    def __init__(self):
+         self.input_log = []
+         self.output_log = []
+         self.clock = 0
+         self.iface = "eth0"
+         self.iface_replica = ""
+         self.get_if()
+
+         self.receiveThread = threading.Thread(target=self.receive, args=(self.iface,))
+         self.receiveThread.start()
+
+         self.receiveReplicaThread = threading.Thread(target=self.receive, args=(self.iface_replica,))
+         self.receiveReplicaThread.start()
+
+    #just increases the clock from the shim layer
+    def clock_tick(self):
+        self.clock = self.clock + 1
+        return self.clock
+
+    #this is supposed to get a list of interfaces. Second interface is suppoesd to be the one for backup
+    def get_if(self):
+        self.ifaces=get_if_list()
+        self.iface_replica=None # "h1-eth0"
+        self.ifaces.remove('lo')
+        for i in self.ifaces:
+            if "eth0" != i and i != None:
+                self.iface_replica=i
+                break;
+
+    def receive(self, iface):
+        print("sniffing on %s" % iface)
+        sys.stdout.flush()
+        sniff(iface = iface,
+              prn = lambda x: self.handle_pkt(x))
+
+    def handle_pkt(self, pkt):
+        if ResistProtocol in pkt and pkt[ResistProtocol].flag == REQUEST_DATA:
+            pkt =  Ether(src=get_if_hwaddr(self.iface_replica), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
+            pkt = pkt / ResistProtocol(flag=REPORT_DATA, pid=1) / IP(dst=coordinatorAdress)
+            #send packet to the coordinator
+            pkt = pkt / Raw(load=str(self.input_log))
+            sendp(pkt, iface=self.iface_replica, verbose=False)
+        elif ResistProtocol in pkt:
+            print("got a packet")
+            self.input_log.append({"lvt":pkt[ResistProtocol].value, "round": pkt[ResistProtocol].round, "pid": pkt[ResistProtocol].pid})
+        print(self.input_log)
+
+    def send(self, addr, iface, input):
+        self.output_log.append({"lvt":self.clock_tick, "data": input})
+
+        print("sending on interface %s to %s" % (self.iface, str(addr)))
+        pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
+        pkt = pkt / ResistProtocol(flag=PKT_FROM_SHIM_LAYER, pid=1) / IP(dst=addr) / TCP(dport=1234, sport=random.randint(49152,65535)) / input
+        pkt.show2()
+        sendp(pkt, iface=self.iface, verbose=False)
+
+def main():
+
+    if len(sys.argv)<3:
+        print('pass 2 arguments: <destination> "<message>"')
+        exit(1)
+
+    addr = socket.gethostbyname(sys.argv[1])
+
+
+    shim = shim_layer();
+    iface = shim.get_if()
+    shim.send(addr, iface, input=sys.argv[2])
+
+
+
+
+if __name__ == '__main__':
+    main()
