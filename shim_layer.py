@@ -25,6 +25,7 @@ PKT_PING = 2
 PKT_PONG = 3
 REQUEST_DATA = 4
 REPORT_DATA = 5
+REPLAY_DATA = 6
 
 #define PKT_FROM_SHIM_LAYER 0
 #define PKT_FROM_MASTER_TO_REPLICA 1
@@ -71,6 +72,10 @@ class shim_layer:
               prn = lambda x: self.handle_pkt(x))
 
     def handle_pkt(self, pkt):
+        if ResistProtocol in pkt and pkt[ResistProtocol].flag == REPLAY_DATA:
+            print(eval(pkt[Raw].load))
+
+        #data being request by the cooordinator?
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REQUEST_DATA:
             pkt =  Ether(src=get_if_hwaddr(self.iface_replica), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
             pkt = pkt / ResistProtocol(flag=REPORT_DATA, pid=1) / IP(dst=coordinatorAdress)

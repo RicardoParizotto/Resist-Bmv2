@@ -29,6 +29,7 @@ PKT_PING = 2
 PKT_PONG = 3
 REQUEST_DATA = 4
 REPORT_DATA = 5
+REPLAY_DATA = 6
 
 class coordinator:
     def __init__(self):
@@ -37,6 +38,14 @@ class coordinator:
             if "eth0" in i:
                 self.iface=i
                 break;
+
+        self.nodes = {"1": "10.0.1.1", "2": "10.0.2.2"}
+
+        self.inputPerNode = {}
+        self.collectCounter = 0
+        self.replayInput = {}
+        #self.nu_until_collect = #threading.Lock()
+
         #pick an interface. IT should be eth0
         self.ifaces.remove(self.iface) #removes eth0 from the interface
 
@@ -50,14 +59,38 @@ class coordinator:
         self.heartbeatingThread.start()
 
     def collect_state(self):
-        nodes = ["10.0.1.1", "10.0.2.2"]
-        #send message to all the nodes requesting logs
+        #send message to all the nodes for requesting logs
 
-        for i in nodes:
+        for i in self.nodes:
             pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
-            pkt =  pkt / ResistProtocol(flag=REQUEST_DATA) / IP(dst=i)
+            pkt =  pkt / ResistProtocol(flag=REQUEST_DATA) / IP(dst= self.nodes[i])
             sendp(pkt, iface=self.iface, verbose=False)
-        #Open thread to receive from all the hosts
+        #Using the receive thread to receive from all the hosts
+
+        #after all the nodes answer
+        while (self.collectCounter < len(self.nodes) - 1):
+            time.sleep(0.1)
+            #this is not how it should be done
+        self.aggregateAndComputeState()
+
+    def aggregateAndComputeState(self):
+        for node in self.inputPerNode:
+            #TODO: add to a map per nodes
+            #for messages from every node
+            for msg in self.inputPerNode[node]:
+                #if the ID is not know by the replatInput data structure
+                if msg['pid'] not in self.replayInput:
+                    self.replayInput[msg['pid']] = []
+                #if the specific LVT is not in the set of messages that pid has to replay, include this message and its round number to the set
+                if msg['lvt'] not in self.replayInput[msg['pid']]:
+                    self.replayInput[msg['pid']].append(msg)
+
+        for node in self.replayInput.keys():
+            pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
+            pkt =  pkt / ResistProtocol(flag=REPLAY_DATA) / IP(dst= self.nodes[str(node)])
+            pkt = pkt / Raw(load=str(self.replayInput[node]))
+            sendp(pkt, iface=self.iface, verbose=False)
+
 
 
     def receive_host_state(self):
@@ -74,8 +107,8 @@ class coordinator:
             sys.stdout.flush()
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REPORT_DATA:
             if Raw in pkt:
-                print(eval(pkt[Raw].load))
-
+                self.inputPerNode[pkt[ResistProtocol].pid] = eval(pkt[Raw].load)
+                self.collectCounter = self.collectCounter + 1
 
     def heartbeating(self):
         while True:
@@ -84,7 +117,8 @@ class coordinator:
                 self.master_alive = False
                 pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
                 pkt = pkt / ResistProtocol(flag=PKT_PING) / IP(dst="10.0.1.1")
-                pkt.show2()
+                #pkt.show2()
+                print("ping")
                 sendp(pkt, iface=self.iface, verbose=False)
             else:
                 #TODO:I need to trigger the recovery process on shim layers
