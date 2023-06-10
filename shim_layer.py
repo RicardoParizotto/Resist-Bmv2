@@ -26,6 +26,7 @@ PKT_PONG = 3
 REQUEST_DATA = 4
 REPORT_DATA = 5
 REPLAY_DATA = 6
+PKT_FROM_SWITCH_TO_APP = 7
 
 #define PKT_FROM_SHIM_LAYER 0
 #define PKT_FROM_MASTER_TO_REPLICA 1
@@ -67,9 +68,11 @@ class shim_layer:
                 break;
 
     def receive(self, iface):
+        #TODO: i need to filter outgoing packets. I don`t need those here
         print("sniffing on %s" % iface)
+        build_lfilter = lambda r: ResistProtocol in r and r[ResistProtocol].flag in [REPLAY_DATA, REQUEST_DATA, PKT_FROM_SWITCH_TO_APP]
         sys.stdout.flush()
-        sniff(iface = iface,
+        sniff(iface = iface, lfilter=build_lfilter,
               prn = lambda x: self.handle_pkt(x))
 
     def handle_pkt(self, pkt):

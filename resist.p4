@@ -13,6 +13,7 @@ const bit<16> TYPE_RES = 0x600;
 #define PKT_FROM_MASTER_TO_REPLICA 1
 #define PKT_PING 2
 #define PKT_PONG 3
+#define PKT_FROM_SWITCH_TO_APP 7
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
@@ -170,6 +171,7 @@ control MyIngress(inout headers hdr,
                       //data collection and export must reach this state and not others. Same for standard shim_layer packets
                       ipv4_lpm.apply();
                       if(hdr.resist.isValid() && hdr.resist.type == PKT_FROM_SHIM_LAYER){
+                          hdr.resist.type = PKT_FROM_SWITCH_TO_APP;
                           roundNumber.read(meta.current_round, 0);
                           hdr.resist.round = meta.current_round + 1;
                           roundNumber.write(0, meta.current_round + 1);

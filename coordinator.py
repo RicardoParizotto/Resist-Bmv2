@@ -68,13 +68,14 @@ class coordinator:
         #Using the receive thread to receive from all the hosts
 
         #after all the nodes answer
-        while (self.collectCounter < len(self.nodes) - 1):
+        while (self.collectCounter < len(self.nodes)):
             time.sleep(0.1)
             #this is not how it should be done
         self.aggregateAndComputeState()
 
     def aggregateAndComputeState(self):
-        for node in self.inputPerNode:
+        print(self.inputPerNode)
+        for node in self.inputPerNode.keys():
             #TODO: add to a map per nodes
             #for messages from every node
             for msg in self.inputPerNode[node]:
@@ -85,7 +86,10 @@ class coordinator:
                 if msg['lvt'] not in self.replayInput[msg['pid']]:
                     self.replayInput[msg['pid']].append(msg)
 
+    #    print(self.replayInput)
+
         for node in self.replayInput.keys():
+            print(self.replayInput)
             pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
             pkt =  pkt / ResistProtocol(flag=REPLAY_DATA) / IP(dst= self.nodes[str(node)])
             pkt = pkt / Raw(load=str(self.replayInput[node]))
