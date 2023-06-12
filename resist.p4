@@ -14,6 +14,8 @@ const bit<16> TYPE_RES = 0x600;
 #define PKT_PING 2
 #define PKT_PONG 3
 #define PKT_FROM_SWITCH_TO_APP 7
+#define PKT_REPLAY_FROM_SHIM 8
+#define PKT_UNORDERED_REPLAY 9
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
@@ -162,10 +164,19 @@ control MyIngress(inout headers hdr,
                   bounce_pkt();
               }else{
                 //this is code for the replica only
-                if(hdr.resist.type == PKT_FROM_MASTER_TO_REPLICA){
+                if(hdr.resist.type == PKT_REPLAY_FROM_SHIM){
+                    roundNumber.read(meta.current_round, 0);
+                    if(meta.current_round + 1 != hdr.resist.round){
+                        hdr.resist.type = PKT_UNORDERED_REPLAY;
+                        bounce_pkt();
+                    }
+                }
+                /*either packet from master switch or replay None:both will process and drop the packet*/
+                if(hdr.resist.type == PKT_FROM_MASTER_TO_REPLICA || hdr.resist.type == PKT_REPLAY_FROM_SHIM){
                     roundNumber.read(meta.current_round, 0);
                     roundNumber.write(0, meta.current_round + 1);
                     drop();
+                    /*INC functionality should go here*/
                 }else{
                   if (hdr.ipv4.isValid()) {
                       //data collection and export must reach this state and not others. Same for standard shim_layer packets

@@ -23,6 +23,13 @@ import threading
 
 from resist_header import *
 
+/*TODO: collect round number at the coordinator ,
+replay based on the round received,
+send signal to nodes to restart
+implement send back to replica in the switches
+inject a failure in the main switch*/
+
+
 PKT_FROM_SHIM_LAYER = 0
 PKT_FROM_MASTER_TO_REPLICA =  1
 PKT_PING = 2

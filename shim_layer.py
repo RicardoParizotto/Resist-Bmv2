@@ -27,6 +27,7 @@ REQUEST_DATA = 4
 REPORT_DATA = 5
 REPLAY_DATA = 6
 PKT_FROM_SWITCH_TO_APP = 7
+PKT_REPLAY_FROM_SHIM = 8
 
 #define PKT_FROM_SHIM_LAYER 0
 #define PKT_FROM_MASTER_TO_REPLICA 1
@@ -45,6 +46,8 @@ class shim_layer:
          self.iface = "eth0"
          self.iface_replica = ""
          self.get_if()
+
+         self.replayDeterminants = {}
 
          self.receiveThread = threading.Thread(target=self.receive, args=(self.iface,))
          self.receiveThread.start()
@@ -66,7 +69,8 @@ class shim_layer:
             if "eth0" != i and i != None:
                 self.iface_replica=i
                 break;
-
+    #sniff every packet, fiter it based on the application Protocol
+    #and pass it to the handle_packet method
     def receive(self, iface):
         #TODO: i need to filter outgoing packets. I don`t need those here
         print("sniffing on %s" % iface)
@@ -75,10 +79,23 @@ class shim_layer:
         sniff(iface = iface, lfilter=build_lfilter,
               prn = lambda x: self.handle_pkt(x))
 
+    #this will send the packets to the replica
+    def send_replay_packets(self, replay_determinants):
+        for msg_from_coordinator in replayDeterminants:
+            for msg_in_shim in self.input_log && msg_from_coordinator['lvt'] == msg_in_shim['lvt']:
+                pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
+                pkt = pkt / ResistProtocol(flag=PKT_REPLAY_FROM_SHIM, pid = self.pid, value= msg_in_shim['lvt'], round=msg_from_coordinator['round'])
+                pkt = pkt / IP(dst=addr) / TCP(dport=1234, sport=random.randint(49152,65535)) / input
+
     def handle_pkt(self, pkt):
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REPLAY_DATA:
             print("packet replay")
             print(eval(pkt[Raw].load))
+            #TODO: process the information received to replay it
+            #-----need a new method to input_log packets according to the replay data order
+            #-----need to append the replay type to the packet and forward it to the switch
+            #-----because switches can send unordered packets back, we need something to receive and
+            #send unordered packets again to the switch
         #data being request by the cooordinator?
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REQUEST_DATA:
             pkt =  Ether(src=get_if_hwaddr(self.iface_replica), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
