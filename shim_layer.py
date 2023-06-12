@@ -80,9 +80,9 @@ class shim_layer:
               prn = lambda x: self.handle_pkt(x))
 
     #this will send the packets to the replica
-    def send_replay_packets(self, replay_determinants):
-        for msg_from_coordinator in replayDeterminants:
-            for msg_in_shim in self.input_log && msg_from_coordinator['lvt'] == msg_in_shim['lvt']:
+    def send_replay_packets(self, replay_determinants, round):
+        for msg_from_coordinator in replay_determinants and msg_from_coordinator['lvt'] >= round:
+            for msg_in_shim in self.input_log and msg_from_coordinator['lvt'] == msg_in_shim['lvt']:
                 pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
                 pkt = pkt / ResistProtocol(flag=PKT_REPLAY_FROM_SHIM, pid = self.pid, value= msg_in_shim['lvt'], round=msg_from_coordinator['round'])
                 pkt = pkt / IP(dst=addr) / TCP(dport=1234, sport=random.randint(49152,65535)) / input
@@ -92,10 +92,9 @@ class shim_layer:
             print("packet replay")
             print(eval(pkt[Raw].load))
             #TODO: process the information received to replay it
-            #-----need a new method to input_log packets according to the replay data order
-            #-----need to append the replay type to the packet and forward it to the switch
             #-----because switches can send unordered packets back, we need something to receive and
             #send unordered packets again to the switch
+            self.send_replay_packets(replay_determinants=eval(pkt[Raw].load), pkt[ResistProtocol].round)
         #data being request by the cooordinator?
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REQUEST_DATA:
             pkt =  Ether(src=get_if_hwaddr(self.iface_replica), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)

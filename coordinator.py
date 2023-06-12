@@ -23,9 +23,8 @@ import threading
 
 from resist_header import *
 
-#TODO: collect round number at the coordinator ,
-#replay based on the round received,
-#send signal to nodes to restart
+#TODO:
+#send signal to nodes to restart/acks for replay in nodes
 #implement send back to replica in the switches
 #inject a failure in the main switch*/
 
