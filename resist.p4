@@ -171,7 +171,7 @@ control MyIngress(inout headers hdr,
                   bounce_pkt();
               }else{
                 //this is code for the replica only
-                if(hdr.resist.type == PKT_REPLAY_FROM_SHIM){
+                if(hdr.resist.type == PKT_REPLAY_FROM_SHIM || hdr.resist.type == PKT_FROM_MASTER_TO_REPLICA ){
                     roundNumber.read(meta.current_round, 0);
                     if(meta.current_round + 1 != hdr.resist.round){
                         hdr.resist.type = PKT_UNORDERED_REPLAY;
@@ -193,9 +193,9 @@ control MyIngress(inout headers hdr,
                           roundNumber.read(meta.current_round, 0);
                           hdr.resist.round = meta.current_round + 1;
                           roundNumber.write(0, meta.current_round + 1);
-                      }
+                       }
                    }
-                }
+                 }
               }
           }
        }
@@ -210,6 +210,10 @@ control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
 
+    action drop() {
+        mark_to_drop(standard_metadata);
+    }
+
     action clone_packet() {
         const bit<32> REPORT_MIRROR_SESSION_ID = 500;
         // Clone from ingress to egress pipeline
@@ -218,9 +222,12 @@ control MyEgress(inout headers hdr,
 
     apply {
         if (standard_metadata.instance_type == PKT_INSTANCE_TYPE_EGRESS_CLONE) {
+            if(hdr.resist.round == 3){
+                drop();
+            }
             hdr.resist.type = PKT_FROM_MASTER_TO_REPLICA;
         }else{
-          if(hdr.resist.isValid() && hdr.resist.type==PKT_FROM_SHIM_LAYER){
+          if(hdr.resist.isValid() && hdr.resist.type==PKT_FROM_SWITCH_TO_APP){
               clone_packet();
           }
        }

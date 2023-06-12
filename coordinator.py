@@ -24,9 +24,10 @@ import threading
 from resist_header import *
 
 #TODO:
-#send signal to nodes to restart/acks for replay in nodes
+#send signal to nodesswitches to send unordered packet back
 #implement send back to replica in the switches
-#inject a failure in the main switch*/
+#inject a failure in the main switch
+#add more hosts*/
 
 
 PKT_FROM_SHIM_LAYER = 0
@@ -103,7 +104,7 @@ class coordinator:
         for node in self.replayInput.keys():
             print(self.replayInput)
             pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
-            pkt =  pkt / ResistProtocol(flag=REPLAY_DATA, round = self.safe_round_number) / IP(dst= self.nodes[str(node)])
+            pkt =  pkt / ResistProtocol(flag=REPLAY_DATA, round=self.safe_round_number) / IP(dst= self.nodes[str(node)])
             pkt = pkt / Raw(load=str(self.replayInput[node]))
             sendp(pkt, iface=self.iface, verbose=False)
 
@@ -122,8 +123,8 @@ class coordinator:
             if Raw in pkt:
                 self.inputPerNode[pkt[ResistProtocol].pid] = eval(pkt[Raw].load)
                 self.collectCounter = self.collectCounter + 1
-        if ResistProtocol in pkt and pkt[ResistProtocol].pid == PKT_EXPORT_ROUND:
-            self.safe_round_number = pkt[ResistProtocol].round
+        if ResistProtocol in pkt and pkt[ResistProtocol].flag == PKT_EXPORT_ROUND:
+            self.safe_round_number = int(pkt[ResistProtocol].round)
 
     def heartbeating(self):
         while True:
