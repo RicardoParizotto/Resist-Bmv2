@@ -28,11 +28,7 @@ REPORT_DATA = 5
 REPLAY_DATA = 6
 PKT_FROM_SWITCH_TO_APP = 7
 PKT_REPLAY_FROM_SHIM = 8
-
-#define PKT_FROM_SHIM_LAYER 0
-#define PKT_FROM_MASTER_TO_REPLICA 1
-#define PKT_PING 2
-#define PKT_PONG 3
+PKT_UNORDERED_REPLAY = 9
 
 coordinatorAdress = "10.0.3.3"
 
@@ -83,22 +79,28 @@ class shim_layer:
     def send_replay_packets(self, replay_determinants, round):
         for msg_from_coordinator in replay_determinants:
             if msg_from_coordinator['round'] > round:
-                for msg_in_shim in self.input_log:
+                for msg_in_shim in self.output_log:
                     if msg_from_coordinator['lvt'] == msg_in_shim['lvt']:
                         pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
                         pkt = pkt / ResistProtocol(flag=PKT_REPLAY_FROM_SHIM, pid = self.pid, value= msg_in_shim['lvt'], round=msg_from_coordinator['round'])
                         pkt = pkt / IP(dst="10.0.1.1") / TCP(dport=1234, sport=random.randint(49152,65535))
+                        sendp(pkt, iface=self.iface, verbose=False)
                         print("replay")
 
     def handle_pkt(self, pkt):
+        #data being request by the cooordinator?
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REPLAY_DATA:
             print("packet replay-- on round %d" % (pkt[ResistProtocol].round))
             print(eval(pkt[Raw].load))
+            self.iface = self.iface_replica
             #TODO: process the information received to replay it
             #-----because switches can send unordered packets back, we need something to receive and
             #send unordered packets again to the switch
             self.send_replay_packets(replay_determinants=eval(pkt[Raw].load), round=pkt[ResistProtocol].round)
-        #data being request by the cooordinator?
+        #packet unordered in the switch. Send it back
+        if ResistProtocol in pkt and pkt[ResistProtocol].flag == PKT_UNORDERED_REPLAY:
+            pkt[ResistProtocol].flag = PKT_REPLAY_FROM_SHIM
+            sendp(pkt, iface=self.iface, verbose=False)
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REQUEST_DATA:
             pkt =  Ether(src=get_if_hwaddr(self.iface_replica), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
             pkt = pkt / ResistProtocol(flag=REPORT_DATA, pid = self.pid) / IP(dst=coordinatorAdress)
@@ -110,6 +112,7 @@ class shim_layer:
             self.input_log.append({"lvt":pkt[ResistProtocol].value, "round": pkt[ResistProtocol].round, "pid": pkt[ResistProtocol].pid})
             #print(self.input_log)
 
+    #TODO: send everything using this method
     def send(self, addr, input):
         self.output_log.append({"lvt":self.clock_tick(), "data": input})
 
