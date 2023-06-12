@@ -37,6 +37,7 @@ PKT_PONG = 3
 REQUEST_DATA = 4
 REPORT_DATA = 5
 REPLAY_DATA = 6
+PKT_COLLECT_ROUND = 10
 
 class coordinator:
     def __init__(self):
@@ -67,13 +68,15 @@ class coordinator:
 
     def collect_state(self):
         #send message to all the nodes for requesting logs
-
         for i in self.nodes:
             pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
             pkt =  pkt / ResistProtocol(flag=REQUEST_DATA) / IP(dst= self.nodes[i])
             sendp(pkt, iface=self.iface, verbose=False)
-        #Using the receive thread to receive from all the hosts
+        #Note: Using the receive thread to receive from all the hosts
 
+        pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
+        pkt =  pkt / ResistProtocol(flag=PKT_COLLECT_ROUND) / IP(dst= self.nodes[i])
+        sendp(pkt, iface=self.iface, verbose=False)
         #after all the nodes answer
         while (self.collectCounter < len(self.nodes)):
             time.sleep(0.1)
