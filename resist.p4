@@ -17,6 +17,7 @@ const bit<16> TYPE_RES = 0x600;
 #define PKT_REPLAY_FROM_SHIM 8
 #define PKT_UNORDERED_REPLAY 9
 #define PKT_COLLECT_ROUND 10
+#define PKT_EXPORT_ROUND 11
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
@@ -158,9 +159,10 @@ control MyIngress(inout headers hdr,
         simulateFailure.read(meta.simulateFailure, 0);
         if(meta.simulateFailure == 1){
             drop();
-        }else if(hdr.resist.type == PKT_COLLECT_ROUND){
+        }else if(hdr.resist.type == PKT_COLLECT_ROUND){ /*collection packets extract a round number and are forwarded to the coordinator*/
             roundNumber.read(meta.current_round, 0);
             hdr.resist.round = meta.current_round;
+            hdr.resist.type = PKT_EXPORT_ROUND;
             bounce_pkt();
         }else{
           if(hdr.resist.isValid()){

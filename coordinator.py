@@ -23,11 +23,11 @@ import threading
 
 from resist_header import *
 
-/*TODO: collect round number at the coordinator ,
-replay based on the round received,
-send signal to nodes to restart
-implement send back to replica in the switches
-inject a failure in the main switch*/
+#TODO: collect round number at the coordinator ,
+#replay based on the round received,
+#send signal to nodes to restart
+#implement send back to replica in the switches
+#inject a failure in the main switch*/
 
 
 PKT_FROM_SHIM_LAYER = 0
@@ -38,6 +38,8 @@ REQUEST_DATA = 4
 REPORT_DATA = 5
 REPLAY_DATA = 6
 PKT_COLLECT_ROUND = 10
+PKT_EXPORT_ROUND = 11
+
 
 class coordinator:
     def __init__(self):
@@ -50,15 +52,15 @@ class coordinator:
         self.nodes = {"1": "10.0.1.1", "2": "10.0.2.2"}
 
         self.inputPerNode = {}
-        self.collectCounter = 0
+        self.collectCounter = 0 #variable for controlling the number of nodes that answered with collection
         self.replayInput = {}
         #self.nu_until_collect = #threading.Lock()
 
+        self.safe_round_number = 0 #variable for controllng the round number in case of restore
+
         #pick an interface. IT should be eth0
         self.ifaces.remove(self.iface) #removes eth0 from the interface
-
         self.master_alive = True  #it starts with the master alive
-
 
         self.receiveThread = threading.Thread(target = self.receive)
         self.receiveThread.start()
@@ -67,6 +69,8 @@ class coordinator:
         self.heartbeatingThread.start()
 
     def collect_state(self):
+        self.safe_round_number = -1
+
         #send message to all the nodes for requesting logs
         for i in self.nodes:
             pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
@@ -74,19 +78,19 @@ class coordinator:
             sendp(pkt, iface=self.iface, verbose=False)
         #Note: Using the receive thread to receive from all the hosts
 
+        #send packet to the switch to receive the round number
         pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
-        pkt =  pkt / ResistProtocol(flag=PKT_COLLECT_ROUND) / IP(dst= self.nodes[i])
+        pkt =  pkt / ResistProtocol(flag=PKT_COLLECT_ROUND) / IP(dst= "10.0.1.1")
         sendp(pkt, iface=self.iface, verbose=False)
-        #after all the nodes answer
-        while (self.collectCounter < len(self.nodes)):
+
+        #---after all the nodes answer, and round is collected follow to the aggregation
+        while (self.collectCounter < len(self.nodes) and self.safe_round_number < 0):
             time.sleep(0.1)
             #this is not how it should be done
         self.aggregateAndComputeState()
 
     def aggregateAndComputeState(self):
-        print(self.inputPerNode)
         for node in self.inputPerNode.keys():
-            #TODO: add to a map per nodes
             #for messages from every node
             for msg in self.inputPerNode[node]:
                 #if the ID is not know by the replayInput data structure
@@ -96,16 +100,13 @@ class coordinator:
                 if msg['lvt'] not in self.replayInput[msg['pid']]:
                     self.replayInput[msg['pid']].append(msg)
 
-    #    print(self.replayInput)
-
+        #send info for all the self.nodes regarding the aggregated information
         for node in self.replayInput.keys():
             print(self.replayInput)
             pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
-            pkt =  pkt / ResistProtocol(flag=REPLAY_DATA) / IP(dst= self.nodes[str(node)])
+            pkt =  pkt / ResistProtocol(flag=REPLAY_DATA, round = self.safe_round_number) / IP(dst= self.nodes[str(node)])
             pkt = pkt / Raw(load=str(self.replayInput[node]))
             sendp(pkt, iface=self.iface, verbose=False)
-
-
 
     def receive_host_state(self):
         print("sniffing on %s" % iface)
@@ -116,13 +117,14 @@ class coordinator:
     def handle_pkt(self, pkt):
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == PKT_PONG:
             print("pong")
-            #pkt.show2()
             self.master_alive = True
             sys.stdout.flush()
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REPORT_DATA:
             if Raw in pkt:
                 self.inputPerNode[pkt[ResistProtocol].pid] = eval(pkt[Raw].load)
                 self.collectCounter = self.collectCounter + 1
+        if ResistProtocol in pkt and pkt[ResistProtocol].pid == PKT_EXPORT_ROUND:
+            self.safe_round_number = pkt[ResistProtocol].round
 
     def heartbeating(self):
         while True:
