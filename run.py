@@ -18,7 +18,7 @@ class MininetProc:
 
     def run_server(self, id):
         self.proc.expect("mininet> ", timeout=None)
-        self.proc.sendline(f"h"+str(id)+" python3 application.py "+str(id)+" &")
+        self.proc.sendline(f"h"+str(id)+" python3 application.py "+str(id)+" 2 &")
 
     def wait(self):
         self.proc.expect("mininet> ", timeout=None)
@@ -29,7 +29,7 @@ def main():
     mininet_proc = MininetProc()
     mininet_proc.run_coordinator()
 
-    for i in range(1,9):
+    for i in range(1,6):
         if(i != 3):  #3 is the coordinator
             mininet_proc.run_server(id=i)
 

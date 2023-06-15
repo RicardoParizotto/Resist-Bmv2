@@ -185,15 +185,15 @@ control MyIngress(inout headers hdr,
                     drop();
                     /*INC functionality should go here*/
                 }else{
-                  if (hdr.ipv4.isValid()) {
-                      //data collection and export must reach this state and not others. Same for standard shim_layer packets
+                  if (hdr.resist.isValid() && hdr.resist.type != PKT_UNORDERED_REPLAY) {
                       ipv4_lpm.apply();
-                      if(hdr.resist.isValid() && hdr.resist.type == PKT_FROM_SHIM_LAYER){
-                          hdr.resist.type = PKT_FROM_SWITCH_TO_APP;
-                          roundNumber.read(meta.current_round, 0);
-                          hdr.resist.round = meta.current_round + 1;
-                          roundNumber.write(0, meta.current_round + 1);
-                       }
+                  }
+                  if (hdr.resist.isValid() && hdr.resist.type == PKT_FROM_SHIM_LAYER){
+                      //data collection and export must reach this state and not others. Same for standard shim_layer packets
+                      hdr.resist.type = PKT_FROM_SWITCH_TO_APP;
+                      roundNumber.read(meta.current_round, 0);
+                      hdr.resist.round = meta.current_round + 1;
+                      roundNumber.write(0, meta.current_round + 1);
                    }
                  }
               }

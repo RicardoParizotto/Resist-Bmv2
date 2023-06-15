@@ -70,7 +70,7 @@ class shim_layer:
     def receive(self, iface):
         #TODO: i need to filter outgoing packets. I don`t need those here
         print("sniffing on %s" % iface)
-        build_lfilter = lambda r: ResistProtocol in r and r[ResistProtocol].flag in [REPLAY_DATA, REQUEST_DATA, PKT_FROM_SWITCH_TO_APP]
+        build_lfilter = lambda r: ResistProtocol in r and r[ResistProtocol].flag in [REPLAY_DATA, REQUEST_DATA, PKT_FROM_SWITCH_TO_APP, PKT_UNORDERED_REPLAY]
         sys.stdout.flush()
         sniff(iface = iface, lfilter=build_lfilter,
               prn = lambda x: self.handle_pkt(x))
@@ -99,8 +99,11 @@ class shim_layer:
             self.send_replay_packets(replay_determinants=eval(pkt[Raw].load), round=pkt[ResistProtocol].round)
         #packet unordered in the switch. Send it back
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == PKT_UNORDERED_REPLAY:
-            pkt[ResistProtocol].flag = PKT_REPLAY_FROM_SHIM
-            sendp(pkt, iface=self.iface, verbose=False)
+            print("unordered")
+            pkt.show2()
+            pkt2 =  Ether(src=get_if_hwaddr(self.iface_replica), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
+            pkt2 = pkt2 / ResistProtocol(flag=PKT_REPLAY_FROM_SHIM, pid = self.pid, round=pkt[ResistProtocol].round, value=pkt[ResistProtocol].value) / IP(dst=coordinatorAdress)
+            sendp(pkt2, iface=self.iface, verbose=False)
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == REQUEST_DATA:
             pkt =  Ether(src=get_if_hwaddr(self.iface_replica), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
             pkt = pkt / ResistProtocol(flag=REPORT_DATA, pid = self.pid) / IP(dst=coordinatorAdress)

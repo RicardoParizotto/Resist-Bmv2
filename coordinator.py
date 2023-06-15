@@ -49,7 +49,8 @@ class coordinator:
                 self.iface=i
                 break;
 
-        self.nodes = {"1": "10.0.1.1", "2": "10.0.2.2", "4": "10.0.4.4", "5": "10.0.5.5", "6": "10.0.6.6", "7": "10.0.7.7", "8": "10.0.8.8"}
+        self.nodes = {"1": "10.0.1.1", "2": "10.0.2.2", "4": "10.0.4.4", "5": "10.0.5.5"}
+        #"6": "10.0.6.6", "7": "10.0.7.7", "8": "10.0.8.8"}
 
         self.inputPerNode = {}
         self.collectCounter = 0 #variable for controlling the number of nodes that answered with collection
