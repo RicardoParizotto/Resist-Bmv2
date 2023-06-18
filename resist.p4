@@ -58,6 +58,7 @@ header resist_t {
 struct metadata {
     bit<32> current_round;
     bit<32> simulateFailure;
+    bit<32> causality_v_counter;
 }
 
 struct headers {
@@ -109,6 +110,8 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 
 register<bit<32>>(1) roundNumber;
 register<bit<32>>(1) simulateFailure;
+
+register<bit<32>>(1) causality_violation;
 
 /*************************************************************************
 **************  I N G R E S S   P R O C E S S I N G   *******************
@@ -174,6 +177,8 @@ control MyIngress(inout headers hdr,
                 if(hdr.resist.type == PKT_REPLAY_FROM_SHIM || hdr.resist.type == PKT_FROM_MASTER_TO_REPLICA ){
                     roundNumber.read(meta.current_round, 0);
                     if(meta.current_round + 1 != hdr.resist.round){
+                        causality_violation.read(meta.causality_v_counter, 0);
+                        causality_violation.write(0, meta.causality_v_counter+1);
                         hdr.resist.type = PKT_UNORDERED_REPLAY;
                         bounce_pkt();
                     }
@@ -222,7 +227,7 @@ control MyEgress(inout headers hdr,
 
     apply {
         if (standard_metadata.instance_type == PKT_INSTANCE_TYPE_EGRESS_CLONE) {
-            if(hdr.resist.round == 3){
+            if(hdr.resist.round == 2){
                 drop();
             }
             hdr.resist.type = PKT_FROM_MASTER_TO_REPLICA;

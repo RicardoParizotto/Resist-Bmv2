@@ -111,7 +111,7 @@ class coordinator:
 
         #send info for all the self.nodes regarding the aggregated information
         for node in self.replayInput.keys():
-            print(self.replayInput)
+            print(self.replayInput[node])
             pkt =  Ether(src=get_if_hwaddr(self.iface), dst='ff:ff:ff:ff:ff:ff')
             pkt =  pkt / ResistProtocol(flag=REPLAY_DATA, round=self.safe_round_number) / IP(dst= self.nodes[str(node)])
             pkt = pkt / Raw(load=str(self.replayInput[node]))

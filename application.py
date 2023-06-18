@@ -45,7 +45,7 @@ def main():
     for node_id in nodes:
         if node_id != pid:
             random_variable = np.random.uniform(0, 1)
-            if(random_variable > 0.5):
+            if(random_variable > 0.7):
                 shim.send(nodes[node_id], input='x')
                 print("%d -> %d" %( pid, node_id ))
 

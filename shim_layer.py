@@ -43,6 +43,8 @@ class shim_layer:
          self.iface_replica = ""
          self.get_if()
 
+         self.file_shim = open("shim_logs/"+str(self.pid)+"log.txt", "a")
+
          self.replayDeterminants = {}
 
          self.receiveThread = threading.Thread(target=self.receive, args=(self.iface,))
@@ -85,7 +87,7 @@ class shim_layer:
                         pkt = pkt / ResistProtocol(flag=PKT_REPLAY_FROM_SHIM, pid = self.pid, value= msg_in_shim['lvt'], round=msg_from_coordinator['round'])
                         pkt = pkt / IP(dst="10.0.1.1") / TCP(dport=1234, sport=random.randint(49152,65535))
                         sendp(pkt, iface=self.iface, verbose=False)
-                        print("replay")
+                        self.file_shim.write("replay")
 
     def handle_pkt(self, pkt):
         #data being request by the cooordinator?
@@ -99,8 +101,8 @@ class shim_layer:
             self.send_replay_packets(replay_determinants=eval(pkt[Raw].load), round=pkt[ResistProtocol].round)
         #packet unordered in the switch. Send it back
         if ResistProtocol in pkt and pkt[ResistProtocol].flag == PKT_UNORDERED_REPLAY:
-            print("unordered")
-            pkt.show2()
+            self.file_shim.write("Unordered"+str(pkt[ResistProtocol].round)+"\n")
+            #pkt.show2()
             pkt2 =  Ether(src=get_if_hwaddr(self.iface_replica), dst='ff:ff:ff:ff:ff:ff', type=TYPE_RES)
             pkt2 = pkt2 / ResistProtocol(flag=PKT_REPLAY_FROM_SHIM, pid = self.pid, round=pkt[ResistProtocol].round, value=pkt[ResistProtocol].value) / IP(dst=coordinatorAdress)
             sendp(pkt2, iface=self.iface, verbose=False)
@@ -110,7 +112,7 @@ class shim_layer:
             #send packet to the coordinator
             pkt = pkt / Raw(load=str(self.input_log))
             sendp(pkt, iface=self.iface_replica, verbose=False)
-        elif ResistProtocol in pkt:
+        elif ResistProtocol in pkt and pkt[ResistProtocol].flag == PKT_FROM_SWITCH_TO_APP:
             print("got a normal packet")
             self.input_log.append({"lvt":pkt[ResistProtocol].value, "round": pkt[ResistProtocol].round, "pid": pkt[ResistProtocol].pid})
             #print(self.input_log)
