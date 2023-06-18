@@ -42,15 +42,18 @@ PKT_EXPORT_ROUND = 11
 
 
 class coordinator:
-    def __init__(self):
+    def __init__(self, size):
         self.ifaces = [i for i in os.listdir('/sys/class/net/') if 'eth' in i]
         for i in self.ifaces:
             if "eth0" in i:
                 self.iface=i
                 break;
 
-        self.nodes = {"1": "10.0.1.1", "2": "10.0.2.2", "4": "10.0.4.4", "5": "10.0.5.5"}
+        #self.nodes = {"1": "10.0.1.1", "2": "10.0.2.2", "4": "10.0.4.4", "5": "10.0.5.5"}
         #"6": "10.0.6.6", "7": "10.0.7.7", "8": "10.0.8.8"}
+        self.nodes = {}
+
+        self.define_nodes(size)
 
         self.inputPerNode = {}
         self.collectCounter = 0 #variable for controlling the number of nodes that answered with collection
@@ -68,6 +71,11 @@ class coordinator:
 
         self.heartbeatingThread = threading.Thread(target = self.heartbeating)
         self.heartbeatingThread.start()
+
+    def define_nodes(self, size):
+        for i in range(1, size+1):
+            if i != 3:
+                self.nodes[str(i)] = "10.0."+str(i)+"."+str(i)
 
     def collect_state(self):
         self.safe_round_number = -1
@@ -180,4 +188,5 @@ class coordinator:
 
 
 if __name__ == '__main__':
-    coordinator()
+    size = int(sys.argv[1])
+    coordinator(size)

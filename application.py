@@ -8,7 +8,14 @@ path = './example.txt'
 check_file = os.path.isfile(path)
 
 #TODO: Create models based on Phold
-nodes = {1: "10.0.1.1", 2: "10.0.2.2", 4: "10.0.4.4", 5: "10.0.5.5"} #6: "10.0.6.6", 7: "10.0.7.7", 8: "10.0.8.8"}
+#nodes = {1: "10.0.1.1", 2: "10.0.2.2", 4: "10.0.4.4", 5: "10.0.5.5"} #6: "10.0.6.6", 7: "10.0.7.7", 8: "10.0.8.8"}
+
+nodes = {}
+
+def define_nodes(size):
+    for i in range(1, size+1):
+        if i != 3:
+            nodes[i] = "10.0."+str(i)+"."+str(i)
 
 def starting():
     i = False
@@ -26,6 +33,8 @@ def main():
 
     pid = int(sys.argv[1])
     size = int(sys.argv[2])
+
+    define_nodes(size)
 
     shim = shim_layer(pid)
 
