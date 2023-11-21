@@ -10,4 +10,4 @@ two switches (a master and a replica) to exemplify the functionality of the syst
 
 Download the VM with bmv2
 
-
+use the script run.py to run a experiment by passing the number of hosts as parameter 
