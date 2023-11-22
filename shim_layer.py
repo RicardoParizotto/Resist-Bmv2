@@ -95,7 +95,7 @@ class shim_layer:
             print("packet replay-- on round %d" % (pkt[ResistProtocol].round))
             print(eval(pkt[Raw].load))
             self.iface = self.iface_replica
-            #TODO: process the information received to replay it
+            # process the information received to replay it
             #-----because switches can send unordered packets back, we need something to receive and
             #send unordered packets again to the switch
             self.send_replay_packets(replay_determinants=eval(pkt[Raw].load), round=pkt[ResistProtocol].round)
